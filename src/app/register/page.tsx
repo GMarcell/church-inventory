@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -13,6 +13,21 @@ export default function RegisterPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/register")
+      .then((res) => res.json())
+      .then((data) => {
+        if (!data.registrationOpen) {
+          router.replace("/login");
+        }
+      })
+      .catch(() => {
+        router.replace("/login");
+      })
+      .finally(() => setChecking(false));
+  }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,6 +84,14 @@ export default function RegisterPage() {
             <p className="text-sm text-slate-500">Redirecting you to sign in...</p>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  if (checking) {
+    return (
+      <div className="min-h-full flex items-center justify-center bg-gradient-to-br from-blue-900 via-blue-800 to-slate-900">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-white" />
       </div>
     );
   }

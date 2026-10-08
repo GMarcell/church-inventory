@@ -25,6 +25,15 @@ export default function UsersPage() {
   const [roleChanges, setRoleChanges] = useState<Record<string, string>>({});
   const [deleting, setDeleting] = useState<string | null>(null);
   const [savingRole, setSavingRole] = useState<string | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    name: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+    role: "editor",
+  });
+  const [creating, setCreating] = useState(false);
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -129,6 +138,58 @@ export default function UsersPage() {
     []
   );
 
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreating(true);
+    setError("");
+
+    if (createForm.password !== createForm.confirmPassword) {
+      setError("Passwords do not match");
+      setCreating(false);
+      return;
+    }
+
+    if (createForm.password.length < 6) {
+      setError("Password must be at least 6 characters");
+      setCreating(false);
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: createForm.name,
+          email: createForm.email,
+          password: createForm.password,
+          role: createForm.role,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error || "Failed to create user");
+        return;
+      }
+
+      const newUser = await res.json();
+      setUsers((prev) => [...prev, newUser]);
+      setShowCreateModal(false);
+      setCreateForm({
+        name: "",
+        email: "",
+        password: "",
+        confirmPassword: "",
+        role: "editor",
+      });
+    } catch {
+      setError("Failed to create user");
+    } finally {
+      setCreating(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-full flex items-center justify-center">
@@ -172,6 +233,27 @@ export default function UsersPage() {
               </p>
             </div>
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="px-3 py-2 text-sm font-medium bg-emerald-500 hover:bg-emerald-400 rounded-lg transition-colors"
+              >
+                <span className="flex items-center gap-1.5">
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M12 4v16m8-8H4"
+                    />
+                  </svg>
+                  Create User
+                </span>
+              </button>
               <Link
                 href="/"
                 className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors"
@@ -352,6 +434,165 @@ export default function UsersPage() {
             </div>
           </div>
         </div>
+        {/* Create User Modal */}
+        {showCreateModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            <div
+              className="fixed inset-0 bg-black/50"
+              onClick={() => setShowCreateModal(false)}
+            />
+            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold text-slate-800">
+                  Create User
+                </h3>
+                <button
+                  onClick={() => setShowCreateModal(false)}
+                  className="p-1 text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateUser} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Name
+                  </label>
+                  <input
+                    type="text"
+                    value={createForm.name}
+                    onChange={(e) =>
+                      setCreateForm((prev) => ({
+                        ...prev,
+                        name: e.target.value,
+                      }))
+                    }
+                    className="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                    placeholder="Full name"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Email <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={createForm.email}
+                    onChange={(e) =>
+                      setCreateForm((prev) => ({
+                        ...prev,
+                        email: e.target.value,
+                      }))
+                    }
+                    className="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                    placeholder="user@church.org"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Password <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    value={createForm.password}
+                    onChange={(e) =>
+                      setCreateForm((prev) => ({
+                        ...prev,
+                        password: e.target.value,
+                      }))
+                    }
+                    className="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                    placeholder="Min. 6 characters"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Confirm Password <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    value={createForm.confirmPassword}
+                    onChange={(e) =>
+                      setCreateForm((prev) => ({
+                        ...prev,
+                        confirmPassword: e.target.value,
+                      }))
+                    }
+                    className="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                    placeholder="Repeat password"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Role <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={createForm.role}
+                    onChange={(e) =>
+                      setCreateForm((prev) => ({
+                        ...prev,
+                        role: e.target.value,
+                      }))
+                    }
+                    className={`w-full px-4 py-2.5 rounded-lg border outline-none text-sm font-medium ${
+                      createForm.role === "admin"
+                        ? "bg-amber-50 border-amber-200 text-amber-800"
+                        : createForm.role === "editor"
+                        ? "bg-green-50 border-green-200 text-green-800"
+                        : "bg-slate-50 border-slate-200 text-slate-600"
+                    }`}
+                  >
+                    <option value="admin">Admin</option>
+                    <option value="editor">Editor</option>
+                    <option value="viewer">Viewer</option>
+                  </select>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateModal(false)}
+                    className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={
+                      creating ||
+                      !createForm.email ||
+                      !createForm.password ||
+                      !createForm.confirmPassword
+                    }
+                    className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-500 disabled:bg-blue-300 rounded-lg transition-colors"
+                  >
+                    {creating ? "Creating..." : "Create User"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

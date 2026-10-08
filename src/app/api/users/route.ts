@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/auth-api";
+
+const validRoles = ["admin", "editor", "viewer"];
 
 export async function GET() {
   const { error } = await requirePermission("users", "manage");
@@ -59,7 +62,6 @@ export async function PUT(request: NextRequest) {
     }
 
     // Validate role
-    const validRoles = ["admin", "editor", "viewer"];
     if (role && !validRoles.includes(role)) {
       return NextResponse.json(
         { error: `Invalid role. Must be one of: ${validRoles.join(", ")}` },
@@ -86,6 +88,76 @@ export async function PUT(request: NextRequest) {
   } catch {
     return NextResponse.json(
       { error: "Failed to update user" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  const { error } = await requirePermission("users", "manage");
+  if (error) return error;
+
+  try {
+    const body = await request.json();
+    const { name, email, password, role } = body;
+
+    if (!email || typeof email !== "string" || !email.includes("@")) {
+      return NextResponse.json(
+        { error: "Valid email is required" },
+        { status: 400 }
+      );
+    }
+
+    if (!password || typeof password !== "string" || password.length < 6) {
+      return NextResponse.json(
+        { error: "Password must be at least 6 characters" },
+        { status: 400 }
+      );
+    }
+
+    // Validate role
+    if (!role || !validRoles.includes(role)) {
+      return NextResponse.json(
+        {
+          error: `Invalid role. Must be one of: ${validRoles.join(", ")}`,
+        },
+        { status: 400 }
+      );
+    }
+
+    const existing = await prisma.user.findUnique({
+      where: { email: email.toLowerCase().trim() },
+    });
+
+    if (existing) {
+      return NextResponse.json(
+        { error: "A user with this email already exists" },
+        { status: 409 }
+      );
+    }
+
+    const passwordHash = await bcrypt.hash(password, 12);
+
+    const user = await prisma.user.create({
+      data: {
+        name: name || null,
+        email: email.toLowerCase().trim(),
+        passwordHash,
+        role,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        createdAt: true,
+      },
+    });
+
+    return NextResponse.json(user, { status: 201 });
+  } catch {
+    return NextResponse.json(
+      { error: "Failed to create user" },
       { status: 500 }
     );
   }

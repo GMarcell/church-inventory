@@ -3,6 +3,18 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/auth-api";
 
+export async function GET() {
+  try {
+    const userCount = await prisma.user.count();
+    return NextResponse.json({ registrationOpen: userCount === 0 });
+  } catch {
+    return NextResponse.json(
+      { error: "Failed to check registration status" },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
